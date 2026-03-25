@@ -1,15 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { AddItemsClient } from "./add-items-client";
+import { Suspense } from "react";
+import AddItems from "./add-items";
 
 export default async function AddItemPage() {
-  const supabase = await createClient();
-
-  const { data: items, error } = await supabase
-    .from("items")
-    .select("id, name, is_on_shopping_list")
-    .order("number_of_times_purchased", { ascending: false });
-
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 px-4 py-12">
       <div className="max-w-lg mx-auto">
@@ -25,13 +18,9 @@ export default async function AddItemPage() {
           </Link>
         </div>
 
-        {error && (
-          <p className="text-red-400 text-sm">Failed to load items.</p>
-        )}
-
-        {!error && items && (
-          <AddItemsClient items={items} />
-        )}
+        <Suspense>
+          <AddItems />
+        </Suspense>
       </div>
     </main>
   );
