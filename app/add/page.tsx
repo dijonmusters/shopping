@@ -18,7 +18,9 @@ export default async function AddItemPage() {
           </Link>
         </div>
 
-        <Suspense>
+        <Suspense
+          fallback={<p className="text-zinc-500 text-sm">Loading items...</p>}
+        >
           <AddItems />
         </Suspense>
       </div>
