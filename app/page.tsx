@@ -6,7 +6,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 px-4 py-12">
       <div className="max-w-lg mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 mt-9">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
             Shopping List
           </h1>
