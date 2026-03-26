@@ -12,7 +12,6 @@ export default async function AddItems() {
   return (
     <>
       {error && <p className="text-red-400 text-sm">Failed to load items.</p>}
-
       {!error && items && <AddItemsClient items={items} />}
     </>
   );

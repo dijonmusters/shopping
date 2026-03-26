@@ -1,7 +1,13 @@
 "use client";
 
-import { useOptimistic, useState } from "react";
-import { addToShoppingList } from "../actions";
+import { useOptimistic, useState, useEffect, startTransition } from "react";
+import {
+  addToShoppingList,
+  removeFromShoppingList,
+  revalidateItems,
+} from "../actions";
+import { createClient } from "@/lib/supabase/client";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 type Item = {
   id: number;
@@ -9,15 +15,76 @@ type Item = {
   is_on_shopping_list: boolean;
 };
 
-export function AddItemsClient({ items }: { items: Item[] }) {
+type OptimisticAction =
+  | { type: "toggle"; id: number }
+  | { type: "insert"; item: Item }
+  | { type: "update"; item: Item }
+  | { type: "delete"; id: number };
+
+function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
+  switch (action.type) {
+    case "toggle":
+      return state.map((item) =>
+        item.id === action.id
+          ? { ...item, is_on_shopping_list: !item.is_on_shopping_list }
+          : item,
+      );
+    case "insert":
+      return [...state, action.item];
+    case "update":
+      return state.map((item) =>
+        item.id === action.item.id ? action.item : item,
+      );
+    case "delete":
+      return state.filter((item) => item.id !== action.id);
+  }
+}
+
+export function AddItemsClient({ items: initialItems }: { items: Item[] }) {
   const [search, setSearch] = useState("");
-  const [optimisticItems, markOptimisticAdded] = useOptimistic(
-    items,
-    (state, addedId: number) =>
-      state.map((item) =>
-        item.id === addedId ? { ...item, is_on_shopping_list: true } : item,
-      ),
+  const [optimisticItems, applyOptimistic] = useOptimistic(
+    initialItems,
+    itemsReducer,
   );
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    let channel: RealtimeChannel | null = null;
+
+    const subscribeToRealtime = async () => {
+      await supabase.realtime.setAuth();
+
+      channel = supabase
+        .channel("items-changes", {
+          config: { private: true },
+        })
+        .on("broadcast", { event: "*" }, ({ payload }) => {
+          startTransition(() => {
+            if (payload.operation === "INSERT") {
+              applyOptimistic({ type: "insert", item: payload.record as Item });
+            } else if (payload.operation === "UPDATE") {
+              applyOptimistic({ type: "update", item: payload.record as Item });
+            } else if (payload.operation === "DELETE") {
+              applyOptimistic({
+                type: "delete",
+                id: (payload.old_record as { id: number }).id,
+              });
+            }
+            revalidateItems();
+          });
+        })
+        .subscribe();
+    };
+
+    subscribeToRealtime();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   const filtered = optimisticItems.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()),
@@ -46,11 +113,24 @@ export function AddItemsClient({ items }: { items: Item[] }) {
             >
               <span className="text-zinc-100 font-medium">{item.name}</span>
               {item.is_on_shopping_list ? (
-                <span className="text-xs text-zinc-500">Added</span>
+                <form
+                  action={async (formData) => {
+                    applyOptimistic({ type: "toggle", id: item.id });
+                    await removeFromShoppingList(formData);
+                  }}
+                >
+                  <input type="hidden" name="id" value={item.id} />
+                  <button
+                    type="submit"
+                    className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                  >
+                    Added
+                  </button>
+                </form>
               ) : (
                 <form
                   action={async (formData) => {
-                    markOptimisticAdded(item.id);
+                    applyOptimistic({ type: "toggle", id: item.id });
                     await addToShoppingList(formData);
                   }}
                 >

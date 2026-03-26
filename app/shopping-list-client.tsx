@@ -1,7 +1,9 @@
 "use client";
 
-import { useOptimistic } from "react";
-import { markAsPurchased, updateNotes } from "./actions";
+import { useOptimistic, useEffect, startTransition } from "react";
+import { markAsPurchased, updateNotes, revalidateItems } from "./actions";
+import { createClient } from "@/lib/supabase/client";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 type Item = {
   id: number;
@@ -9,11 +11,86 @@ type Item = {
   notes: string | null;
 };
 
-export function ShoppingListClient({ items }: { items: Item[] }) {
-  const [optimisticItems, removeOptimistic] = useOptimistic(
-    items,
-    (state, removedId: number) => state.filter((item) => item.id !== removedId),
+type OptimisticAction =
+  | { type: "remove"; id: number }
+  | { type: "insert"; row: Item & { is_on_shopping_list: boolean } }
+  | { type: "update"; row: Item & { is_on_shopping_list: boolean } }
+  | { type: "delete"; id: number };
+
+function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
+  switch (action.type) {
+    case "remove":
+    case "delete":
+      return state.filter((item) => item.id !== action.id);
+    case "insert":
+      if (!action.row.is_on_shopping_list) return state;
+      return [
+        ...state,
+        { id: action.row.id, name: action.row.name, notes: action.row.notes },
+      ];
+    case "update": {
+      const { id, name, notes, is_on_shopping_list } = action.row;
+      if (!is_on_shopping_list) return state.filter((item) => item.id !== id);
+      const exists = state.some((item) => item.id === id);
+      if (exists)
+        return state.map((item) =>
+          item.id === id ? { id, name, notes } : item,
+        );
+      return [...state, { id, name, notes }];
+    }
+  }
+}
+
+export function ShoppingListClient({ items: initialItems }: { items: Item[] }) {
+  const [optimisticItems, applyOptimistic] = useOptimistic(
+    initialItems,
+    itemsReducer,
   );
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    let channel: RealtimeChannel | null = null;
+
+    const subscribeToRealtime = async () => {
+      await supabase.realtime.setAuth();
+
+      channel = supabase
+        .channel("items-changes", {
+          config: { private: true },
+        })
+        .on("broadcast", { event: "*" }, ({ payload }) => {
+          startTransition(() => {
+            if (payload.operation === "INSERT") {
+              applyOptimistic({
+                type: "insert",
+                row: payload.record as Item & { is_on_shopping_list: boolean },
+              });
+            } else if (payload.operation === "UPDATE") {
+              applyOptimistic({
+                type: "update",
+                row: payload.record as Item & { is_on_shopping_list: boolean },
+              });
+            } else if (payload.operation === "DELETE") {
+              applyOptimistic({
+                type: "delete",
+                id: (payload.old_record as { id: number }).id,
+              });
+            }
+            revalidateItems();
+          });
+        })
+        .subscribe();
+    };
+
+    subscribeToRealtime();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   return (
     <ul className="divide-y divide-zinc-800">
@@ -21,7 +98,7 @@ export function ShoppingListClient({ items }: { items: Item[] }) {
         <li key={item.id} className="py-4 flex items-start gap-3">
           <form
             action={async (formData) => {
-              removeOptimistic(item.id);
+              applyOptimistic({ type: "remove", id: item.id });
               await markAsPurchased(formData);
             }}
           >
@@ -51,7 +128,6 @@ export function ShoppingListClient({ items }: { items: Item[] }) {
             <input
               type="text"
               defaultValue={item.notes ?? ""}
-              placeholder="Add a note…"
               onBlur={(e) => {
                 const value = e.target.value.trim();
                 if (value !== (item.notes ?? "")) {
