@@ -66,3 +66,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Lift sonner toasts above Safari mobile URL bar */
+@supports (-webkit-touch-callout: none) {
+  [data-sonner-toaster][data-y-position='bottom'] {
+    --mobile-offset-bottom: 80px !important;
+  }
+}
