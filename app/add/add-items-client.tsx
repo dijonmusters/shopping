@@ -1,10 +1,12 @@
 "use client";
 
 import { useOptimistic, useState, useEffect, startTransition } from "react";
+import { usePathname } from "next/navigation";
 import {
   addToShoppingList,
   removeFromShoppingList,
   revalidateItems,
+  updateNotes,
 } from "../actions";
 import { createClient } from "@/lib/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
@@ -14,6 +16,7 @@ type Item = {
   name: string;
   is_on_shopping_list: boolean;
   number_of_times_purchased: number;
+  notes: string | null;
 };
 
 type OptimisticAction =
@@ -49,6 +52,11 @@ function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
 
 export function AddItemsClient({ items: initialItems }: { items: Item[] }) {
   const [search, setSearch] = useState("");
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setSearch("");
+  }, [pathname]);
   const [optimisticItems, applyOptimistic] = useOptimistic(
     initialItems,
     itemsReducer,
@@ -116,9 +124,33 @@ export function AddItemsClient({ items: initialItems }: { items: Item[] }) {
           {filtered.map((item) => (
             <li
               key={item.id}
-              className="p-4 flex items-center justify-between gap-3"
+              className="p-4 flex items-start justify-between gap-3"
             >
-              <span className="text-zinc-100 font-medium">{item.name}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-zinc-100 font-medium">{item.name}</span>
+                <textarea
+                  defaultValue={item.notes ?? ""}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (item.notes ?? "")) {
+                      updateNotes(item.id, value);
+                    }
+                  }}
+                  rows={1}
+                  className="mt-1 w-full bg-transparent text-sm text-zinc-400 placeholder-zinc-600 focus:outline-none focus:text-zinc-300 transition-colors resize-none overflow-hidden"
+                />
+              </div>
               {item.is_on_shopping_list ? (
                 <form
                   action={async (formData) => {

@@ -129,16 +129,27 @@ export function ShoppingListClient({ items: initialItems }: { items: Item[] }) {
           </form>
           <div className="flex-1 min-w-0">
             <span className="text-zinc-100 font-medium">{item.name}</span>
-            <input
-              type="text"
+            <textarea
               defaultValue={item.notes ?? ""}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = `${el.scrollHeight}px`;
+                }
+              }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              }}
               onBlur={(e) => {
                 const value = e.target.value.trim();
                 if (value !== (item.notes ?? "")) {
                   updateNotes(item.id, value);
                 }
               }}
-              className="mt-1 w-full bg-transparent text-sm text-zinc-400 placeholder-zinc-600 focus:outline-none focus:text-zinc-300 transition-colors"
+              rows={1}
+              className="mt-1 w-full bg-transparent text-sm text-zinc-400 placeholder-zinc-600 focus:outline-none focus:text-zinc-300 transition-colors resize-none overflow-hidden"
             />
           </div>
         </li>
