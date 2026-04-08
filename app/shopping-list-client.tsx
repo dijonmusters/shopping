@@ -97,6 +97,10 @@ export function ShoppingListClient({ items: initialItems }: { items: Item[] }) {
     };
   }, []);
 
+  if (optimisticItems.length === 0) {
+    return <p className="text-zinc-500 text-sm">No items on the list.</p>;
+  }
+
   return (
     <ul className="divide-y divide-zinc-800">
       {optimisticItems.map((item) => (

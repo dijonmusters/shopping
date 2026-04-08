@@ -14,13 +14,7 @@ export default async function ShoppingList() {
     <>
       {error && <p className="text-red-400 text-sm">Failed to load items.</p>}
 
-      {!error && items?.length === 0 && (
-        <p className="text-zinc-500 text-sm">No items on the list.</p>
-      )}
-
-      {!error && items && items.length > 0 && (
-        <ShoppingListClient items={items} />
-      )}
+      {!error && items && <ShoppingListClient items={items} />}
     </>
   );
 }
