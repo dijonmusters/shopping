@@ -13,6 +13,7 @@ type Item = {
   id: number;
   name: string;
   is_on_shopping_list: boolean;
+  number_of_times_purchased: number;
 };
 
 type OptimisticAction =
@@ -20,6 +21,12 @@ type OptimisticAction =
   | { type: "insert"; item: Item }
   | { type: "update"; item: Item }
   | { type: "delete"; id: number };
+
+function sortByPurchases(items: Item[]): Item[] {
+  return [...items].sort(
+    (a, b) => b.number_of_times_purchased - a.number_of_times_purchased,
+  );
+}
 
 function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
   switch (action.type) {
@@ -30,10 +37,10 @@ function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
           : item,
       );
     case "insert":
-      return [...state, action.item];
+      return sortByPurchases([...state, action.item]);
     case "update":
-      return state.map((item) =>
-        item.id === action.item.id ? action.item : item,
+      return sortByPurchases(
+        state.map((item) => (item.id === action.item.id ? action.item : item)),
       );
     case "delete":
       return state.filter((item) => item.id !== action.id);

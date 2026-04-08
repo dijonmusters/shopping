@@ -17,6 +17,10 @@ type OptimisticAction =
   | { type: "update"; row: Item & { is_on_shopping_list: boolean } }
   | { type: "delete"; id: number };
 
+function sortByName(items: Item[]): Item[] {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
   switch (action.type) {
     case "remove":
@@ -24,19 +28,19 @@ function itemsReducer(state: Item[], action: OptimisticAction): Item[] {
       return state.filter((item) => item.id !== action.id);
     case "insert":
       if (!action.row.is_on_shopping_list) return state;
-      return [
+      return sortByName([
         ...state,
         { id: action.row.id, name: action.row.name, notes: action.row.notes },
-      ];
+      ]);
     case "update": {
       const { id, name, notes, is_on_shopping_list } = action.row;
       if (!is_on_shopping_list) return state.filter((item) => item.id !== id);
       const exists = state.some((item) => item.id === id);
       if (exists)
-        return state.map((item) =>
-          item.id === id ? { id, name, notes } : item,
+        return sortByName(
+          state.map((item) => (item.id === id ? { id, name, notes } : item)),
         );
-      return [...state, { id, name, notes }];
+      return sortByName([...state, { id, name, notes }]);
     }
   }
 }

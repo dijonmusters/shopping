@@ -6,7 +6,7 @@ export default async function AddItems() {
 
   const { data: items, error } = await supabase
     .from("items")
-    .select("id, name, is_on_shopping_list")
+    .select("id, name, is_on_shopping_list, number_of_times_purchased")
     .order("number_of_times_purchased", { ascending: false });
 
   return (
