@@ -48,6 +48,17 @@ export async function createItem(formData: FormData) {
   revalidatePath("/add");
 }
 
+export async function undoPurchase(id: number, notes: string | null) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("items")
+    .update({ is_on_shopping_list: true, notes: notes || null })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/");
+  revalidatePath("/add");
+}
+
 export async function removeFromShoppingList(formData: FormData) {
   const id = Number(formData.get("id"));
   const supabase = await createClient();

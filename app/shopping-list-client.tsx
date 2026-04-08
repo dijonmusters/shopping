@@ -1,9 +1,10 @@
 "use client";
 
 import { useOptimistic, useEffect, startTransition } from "react";
-import { markAsPurchased, updateNotes, revalidateItems } from "./actions";
+import { markAsPurchased, updateNotes, revalidateItems, undoPurchase } from "./actions";
 import { createClient } from "@/lib/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 type Item = {
   id: number;
@@ -102,7 +103,22 @@ export function ShoppingListClient({ items: initialItems }: { items: Item[] }) {
         <li key={item.id} className="py-4 flex items-start gap-3">
           <form
             action={async (formData) => {
+              const snapshot = { ...item };
               applyOptimistic({ type: "remove", id: item.id });
+              toast(snapshot.name, {
+                action: {
+                  label: "Undo",
+                  onClick: () => {
+                    startTransition(() => {
+                      applyOptimistic({
+                        type: "update",
+                        row: { ...snapshot, is_on_shopping_list: true },
+                      });
+                      undoPurchase(snapshot.id, snapshot.notes);
+                    });
+                  },
+                },
+              });
               await markAsPurchased(formData);
             }}
           >
