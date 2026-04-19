@@ -27,7 +27,9 @@ type OptimisticAction =
 
 function sortByPurchases(items: Item[]): Item[] {
   return [...items].sort(
-    (a, b) => b.number_of_times_purchased - a.number_of_times_purchased,
+    (a, b) =>
+      b.number_of_times_purchased - a.number_of_times_purchased ||
+      a.name.localeCompare(b.name),
   );
 }
 
